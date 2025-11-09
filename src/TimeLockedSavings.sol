@@ -75,7 +75,7 @@ contract TimeLockedSavings {
         return emergencyWithdrawSuccess;
     }
 
-    function getOwner() external view returns(address) {
+    function getOwner() external view returns (address) {
         return I_OWNER;
     }
 }
