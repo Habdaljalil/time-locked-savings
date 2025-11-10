@@ -31,14 +31,15 @@ contract TimeLockedSavings {
     function _depositExists(uint256 depositId, address user) internal view {
         uint256 numberOfUserDeposits = userToDeposits[user].length;
 
-        require(numberOfUserDeposits > 0);
+        require(numberOfUserDeposits > 0, TimeLockedSavingsLibrary.NO__DEPOSITS());
         if (depositId > numberOfUserDeposits - 1) {
             revert TimeLockedSavingsLibrary.DEPOSIT__DOES__NOT__EXIST(depositId);
         }
     }
 
     function deposit(uint256 duration) external payable {
-        require(msg.value > 0);
+        require(msg.value > 0, TimeLockedSavingsLibrary.NOT__ENOUGH__FUNDS(msg.value));
+        require(duration > 0, TimeLockedSavingsLibrary.NOT__ENOUGH__TIME(duration));
         userToDeposits[msg.sender].push(
             TimeLockedSavingsLibrary.Deposit({amount: msg.value, unlockTime: duration, withdrawn: false})
         );
@@ -46,16 +47,16 @@ contract TimeLockedSavings {
     }
 
     function withdraw(uint256 depositId)
-        public
+        external
         payable
         depositExists(depositId, msg.sender)
         returns (bool callSuccess)
     {
-        // public because emergency calls it
         TimeLockedSavingsLibrary.Deposit storage userDeposit = userToDeposits[msg.sender][depositId];
         if (block.timestamp >= userDeposit.unlockTime) {
             (bool withdrawSuccess,) = address(msg.sender).call{value: userDeposit.amount}("Standard Withdraw");
             require(withdrawSuccess);
+            emit TimeLockedSavingsLibrary.Withdraw(msg.sender, block.timestamp, userDeposit.amount);
             return withdrawSuccess;
         } else {
             revert TimeLockedSavingsLibrary.WITHDRAW__TOO__EARLY(block.timestamp);
@@ -77,5 +78,9 @@ contract TimeLockedSavings {
 
     function getOwner() external view returns (address) {
         return I_OWNER;
+    }
+
+    function getUserToDeposits(address user) external view returns (TimeLockedSavingsLibrary.Deposit[] memory) {
+        return userToDeposits[user];
     }
 }

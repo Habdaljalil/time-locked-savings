@@ -18,4 +18,7 @@ library TimeLockedSavingsLibrary {
     error NOT__OWNER(address sender, address owner);
     error DEPOSIT__DOES__NOT__EXIST(uint256 depositId);
     error WITHDRAW__TOO__EARLY(uint256 timestamp);
+    error NOT__ENOUGH__FUNDS(uint256 funds);
+    error NOT__ENOUGH__TIME(uint256 time);
+    error NO__DEPOSITS();
 }
