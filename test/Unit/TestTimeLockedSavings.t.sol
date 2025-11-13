@@ -5,12 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {DeployTimeLockedSavings} from "../../script/DeployTimeLockedSavings.s.sol";
 import {TimeLockedSavings} from "../../src/TimeLockedSavings.sol";
 import {TimeLockedSavingsLibrary} from "../../src/TimeLockedSavingsLibrary.sol";
-import {console} from "forge-std/console.sol";
+import {BadReceiver} from "../Mocks/BadReceiver.sol";
 
 contract TestTimeLockedSavings is Test {
     TimeLockedSavings timeLockedSavings;
     address internal owner = makeAddr("Hassan");
     address internal user1 = makeAddr("User 1");
+    address internal badReceiver = address(new BadReceiver());
     uint256 constant DEPOSIT_AMOUNT = 5 ether;
     uint256 constant DURATION = 1 minutes;
 
@@ -19,9 +20,9 @@ contract TestTimeLockedSavings is Test {
         timeLockedSavings = deployTimeLockedSavings.run(owner);
     }
 
-    modifier userOneDepositedSuccessfully() {
-        vm.deal(user1, DEPOSIT_AMOUNT);
-        vm.startPrank(user1);
+    modifier userDepositedSuccessfully(address user) {
+        vm.deal(user, DEPOSIT_AMOUNT);
+        vm.startPrank(user);
         timeLockedSavings.deposit{value: DEPOSIT_AMOUNT}(DURATION);
         vm.stopPrank();
         _;
@@ -63,7 +64,7 @@ contract TestTimeLockedSavings is Test {
         vm.stopPrank();
     }
 
-    function testWithdraw() public userOneDepositedSuccessfully {
+    function testWithdraw() public userDepositedSuccessfully(user1) {
         skip(DURATION);
         vm.expectEmit(true, true, true, false);
         emit TimeLockedSavingsLibrary.Withdraw(user1, vm.getBlockTimestamp(), DEPOSIT_AMOUNT);
@@ -72,7 +73,8 @@ contract TestTimeLockedSavings is Test {
         vm.stopPrank();
     }
 
-    function testWithdrawNonExistant() public userOneDepositedSuccessfully {
+    function testWithdrawNonExistant() public userDepositedSuccessfully(user1) {
+        skip(DURATION);
         vm.expectRevert(abi.encodeWithSelector(TimeLockedSavingsLibrary.DEPOSIT__DOES__NOT__EXIST.selector, 1));
         vm.startPrank(user1);
         timeLockedSavings.withdraw(1);
@@ -80,9 +82,52 @@ contract TestTimeLockedSavings is Test {
     }
 
     function testWithdrawNoDeposits() public {
+        skip(DURATION);
         vm.expectRevert(TimeLockedSavingsLibrary.NO__DEPOSITS.selector);
         vm.startPrank(user1);
         timeLockedSavings.withdraw(0);
+        vm.stopPrank();
+    }
+
+    function testWithdrawTooEarly() public userDepositedSuccessfully(user1) {
+        vm.expectRevert(abi.encodeWithSelector(TimeLockedSavingsLibrary.WITHDRAW__TOO__EARLY.selector, block.timestamp));
+        vm.startPrank(user1);
+        timeLockedSavings.withdraw(0);
+        vm.stopPrank();
+    }
+
+    function testWithdrawBadReceiver() public userDepositedSuccessfully(user1) {
+        vm.deal(badReceiver, DEPOSIT_AMOUNT);
+        vm.startPrank(badReceiver);
+        timeLockedSavings.deposit{value: DEPOSIT_AMOUNT}(DURATION);
+        vm.stopPrank();
+
+        skip(DURATION);
+
+        vm.expectRevert();
+        vm.startPrank(badReceiver);
+        timeLockedSavings.withdraw(0);
+        vm.stopPrank();
+    }
+
+    function testEmergencyWithdraw() public userDepositedSuccessfully(user1) {
+        vm.startPrank(owner);
+        timeLockedSavings.emergencyWithdraw(0, user1);
+        vm.stopPrank();
+        assertEq(payable(user1).balance, DEPOSIT_AMOUNT);
+    }
+
+    function testEmergencyWithdrawNotOwner() public userDepositedSuccessfully(user1) {
+        vm.expectRevert(abi.encodeWithSelector(TimeLockedSavingsLibrary.NOT__OWNER.selector, user1, owner));
+        vm.startPrank(user1);
+        timeLockedSavings.emergencyWithdraw(0, user1);
+        vm.stopPrank();
+    }
+
+    function testEmergencyWithdrawBadReceiver() public userDepositedSuccessfully(badReceiver) {
+        vm.expectRevert();
+        vm.startPrank(owner);
+        timeLockedSavings.emergencyWithdraw(0, badReceiver);
         vm.stopPrank();
     }
 
