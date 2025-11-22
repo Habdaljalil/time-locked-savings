@@ -46,16 +46,11 @@ contract TimeLockedSavings {
         emit TimeLockedSavingsLibrary.Deposited(msg.sender, block.timestamp, msg.value);
     }
 
-    function withdraw(uint256 depositId)
-        external
-        payable
-        depositExists(depositId, msg.sender)
-        returns (bool callSuccess)
-    {
+    function withdraw(uint256 depositId) external depositExists(depositId, msg.sender) returns (bool callSuccess) {
         TimeLockedSavingsLibrary.Deposit storage userDeposit = userToDeposits[msg.sender][depositId];
         if (block.timestamp >= userDeposit.unlockTime) {
-            (bool withdrawSuccess,) = address(msg.sender).call{value: userDeposit.amount}("Standard Withdraw");
-            require(withdrawSuccess);
+            (bool withdrawSuccess,) = payable(msg.sender).call{value: userDeposit.amount}(""); // this fails first
+            require(withdrawSuccess, TimeLockedSavingsLibrary.FAILED__WITHDRAW());
             emit TimeLockedSavingsLibrary.Withdraw(msg.sender, block.timestamp, userDeposit.amount);
             return withdrawSuccess;
         } else {

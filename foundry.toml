@@ -4,4 +4,13 @@ out = "out"
 libs = ["lib"]
 solc_version="0.8.30"
 
+[fuzz]
+#runs=4294967295 #max
+runs=10000
+max_test_rejects = 0
+#failure_persist_file="/home/hassanabdaljalil/Downloads/Programming/Solidity-Learning/projects/time-locked-savings/test/failures.txt"
+# dictionary_weight = 40
+# include_storage = true
+# include_push_bytes = true
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

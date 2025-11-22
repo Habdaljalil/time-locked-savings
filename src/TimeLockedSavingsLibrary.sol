@@ -21,4 +21,5 @@ library TimeLockedSavingsLibrary {
     error NOT__ENOUGH__FUNDS(uint256 funds);
     error NOT__ENOUGH__TIME(uint256 time);
     error NO__DEPOSITS();
+    error FAILED__WITHDRAW();
 }
